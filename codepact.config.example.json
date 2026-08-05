@@ -1,0 +1,8 @@
+{
+  "ranges": {
+    "TokenError": [100, 199],
+    "RouterError": [200, 299],
+    "FactoryError": [300, 399]
+  },
+  "ignore": []
+}

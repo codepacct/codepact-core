@@ -1,0 +1,42 @@
+{
+  "name": "@codepact/core",
+  "version": "0.1.0",
+  "description": "Codepact core - error-code integrity analyzer for Soroban smart contracts.",
+  "type": "module",
+  "license": "MIT",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "bin": {
+    "codepact": "bin/codepact.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "test": "node --test test/",
+    "check:clean": "node bin/codepact.js examples/clean --strict",
+    "check:broken": "node bin/codepact.js examples/broken"
+  },
+  "keywords": [
+    "codepact",
+    "soroban",
+    "stellar",
+    "smart-contracts",
+    "error-codes",
+    "static-analysis",
+    "linter"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codepacct/codepact-core.git"
+  },
+  "dependencies": {}
+}

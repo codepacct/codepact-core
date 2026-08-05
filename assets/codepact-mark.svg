@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Codepact">
+  <title>Codepact</title>
+  <rect width="256" height="256" rx="48" fill="#0B1020"/>
+  <g fill="none" stroke-width="14" stroke-linejoin="round">
+    <polygon points="34,128 68,69 136,69 170,128 136,187 68,187" stroke="#F5A524"/>
+    <polygon points="86,128 120,69 188,69 222,128 188,187 120,187" stroke="#22D3EE"/>
+  </g>
+  <circle cx="128" cy="128" r="32" fill="#0B1020"/>
+  <circle cx="128" cy="128" r="24" fill="#F5A524"/>
+  <path d="M116 114 L128 130 L140 114 Z" fill="#0B1020"/>
+</svg>

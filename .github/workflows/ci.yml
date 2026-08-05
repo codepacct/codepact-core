@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20.x', '22.x']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Unit tests
+        run: npm test
+
+      - name: The clean example must pass, warnings included
+        run: node bin/codepact.js examples/clean --strict
+
+      - name: The broken example must fail
+        run: |
+          if node bin/codepact.js examples/broken; then
+            echo 'Expected the broken example to fail, but it passed.'
+            exit 1
+          fi
