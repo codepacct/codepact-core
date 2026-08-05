@@ -21,7 +21,7 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "test": "node --test test/",
+    "test": "node --test test/parse.test.js test/analyze.test.js",
     "check:clean": "node bin/codepact.js examples/clean --strict",
     "check:broken": "node bin/codepact.js examples/broken"
   },
