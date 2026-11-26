@@ -9,7 +9,7 @@
 
 import { blankComments } from "./comments.js"
 
-const ATTRIBUTE = "#[contracterror]"
+const ATTRIBUTE = /#\s*\[\s*(?:::\s*)?(?:(?:r#)?[_\p{XID_Start}][_\p{XID_Continue}]*\s*::\s*)*contracterror\s*\]/gu
 const IDENT_CHAR = /[A-Za-z0-9_]/
 
 /**
@@ -37,14 +37,17 @@ export function parseContractErrors(source, filePath = "<memory>") {
 
 	let cursor = 0
 	while (true) {
-		const attributeAt = clean.indexOf(ATTRIBUTE, cursor)
-		if (attributeAt === -1) break
-		cursor = attributeAt + ATTRIBUTE.length
+		ATTRIBUTE.lastIndex = cursor
+		const attribute = ATTRIBUTE.exec(clean)
+		if (!attribute) break
+		const attributeAt = attribute.index
+		cursor = ATTRIBUTE.lastIndex
 
 		// Only look for the enum keyword before the next attribute, so an
 		// attribute that is not followed by an enum cannot swallow the next one.
-		const nextAttribute = clean.indexOf(ATTRIBUTE, cursor)
-		const limit = nextAttribute === -1 ? clean.length : nextAttribute
+		ATTRIBUTE.lastIndex = cursor
+		const nextAttribute = ATTRIBUTE.exec(clean)
+		const limit = nextAttribute ? nextAttribute.index : clean.length
 
 		const keywordAt = findEnumKeyword(clean, cursor, limit)
 		if (keywordAt === -1) continue
