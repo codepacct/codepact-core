@@ -138,9 +138,16 @@ function main() {
 
 	const config = options.config ? JSON.parse(readFileSync(options.config, "utf8")) : {}
 
+	// Deduplicate by resolved real path (following symlinks) so overlapping or
+	// repeated scan targets never double-count enums or collide with themselves,
+	// while keeping the first-seen relative path for display.
+	const seenFiles = new Set()
 	const enums = []
 	for (const path of options.paths) {
 		for (const file of collectRustFiles(path)) {
+			const canonical = realpathSync(file)
+			if (seenFiles.has(canonical)) continue
+			seenFiles.add(canonical)
 			const source = readFileSync(file, "utf8")
 			enums.push(...parseContractErrors(source, relative(process.cwd(), file) || file))
 		}
