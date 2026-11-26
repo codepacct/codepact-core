@@ -1,0 +1,49 @@
+name: Feature request
+description: Propose a change to the analyzer, CLI or output
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the problem before the solution. A feature that does not remove
+        a real failure is unlikely to be accepted.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What goes wrong today, and who is affected
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should change, including the command or API shape
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Area
+      options:
+        - Parser
+        - Rule
+        - CLI
+        - Report format
+        - Configuration
+        - Documentation
+        - CI or packaging
+    validations:
+      required: true
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints
+      options:
+        - label: This can be implemented without a runtime dependency
+        - label: This does not require a Rust toolchain at runtime
+        - label: I can provide a failing test or fixture

@@ -5,6 +5,16 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { spawnSync } from "node:child_process"
 import { analyze } from "../src/analyze.js"
+
+function tryLink(make) {
+	try {
+		make()
+		return true
+	} catch (error) {
+		if (error.code === "EPERM" || error.code === "EACCES") return false
+		throw error
+	}
+}
 import { parseContractErrors } from "../src/parse.js"
 import { createBaseline, compareBaseline } from "../src/baseline.js"
 
@@ -71,12 +81,14 @@ test("baseline files cannot be overwritten, including via aliases and hard links
 	const original = readFileSync(join(dir, "b.json"), "utf8")
 	assert.equal(run("--write-baseline", "b.json").status, 2)
 	assert.equal(run("--baseline", "b.json", "--out", "./b.json").status, 2)
-	linkSync(join(dir, "b.json"), join(dir, "alias.json"))
-	assert.equal(run("--baseline", "b.json", "--out", "alias.json").status, 2)
+	if (tryLink(() => linkSync(join(dir, "b.json"), join(dir, "alias.json")))) {
+		assert.equal(run("--baseline", "b.json", "--out", "alias.json").status, 2)
+	}
 	assert.equal(readFileSync(join(dir, "b.json"), "utf8"), original)
 	assert.equal(run("--write-baseline", "new.json", "--out", "./new.json").status, 2)
-	symlinkSync(dir, join(dir, "alias-dir"), "dir")
-	assert.equal(run("--write-baseline", "new.json", "--out", "alias-dir/new.json").status, 2)
+	if (tryLink(() => symlinkSync(dir, join(dir, "alias-dir"), "dir"))) {
+		assert.equal(run("--write-baseline", "new.json", "--out", "alias-dir/new.json").status, 2)
+	}
 })
 
 test("output formats and ignore config apply consistently", (t) => {
