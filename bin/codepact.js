@@ -25,6 +25,7 @@ Options:
   --write-baseline <file>  Record current findings as accepted.
   --baseline <file>  Report and fail only on findings not in the baseline.
   -h, --help         Show this message.
+  -v, --version      Show the package version.
 
 Exit codes:
   0  no errors (and no warnings when --strict is set)
@@ -43,6 +44,7 @@ function parseArguments(argv) {
 		baseline: null,
 		writeBaseline: null,
 		help: false,
+		version: false,
 	}
 
 	for (let i = 0; i < argv.length; i++) {
@@ -51,6 +53,10 @@ function parseArguments(argv) {
 			case "-h":
 			case "--help":
 				options.help = true
+				break
+			case "-v":
+			case "--version":
+				options.version = true
 				break
 			case "--json":
 				options.json = true
@@ -133,6 +139,12 @@ function main() {
 
 	if (options.help) {
 		process.stdout.write(USAGE)
+		return 0
+	}
+
+	if (options.version) {
+		const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"))
+		process.stdout.write(`${version}\n`)
 		return 0
 	}
 
