@@ -59,6 +59,7 @@ export function analyze(enums, config = {}) {
 
 		for (const variant of declaration.variants) {
 			if (variant.value === null) {
+				if (variant.valueState === "unresolved") continue
 				report({
 					rule: "implicit-discriminant",
 					severity: "warning",

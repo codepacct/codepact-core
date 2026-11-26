@@ -18,11 +18,14 @@ export function toText(enums, findings) {
 	for (const declaration of enums) {
 		lines.push(`${declaration.name}  (${declaration.file}:${declaration.line})`)
 		for (const variant of declaration.variants) {
-			const code = variant.value === null ? "implicit" : String(variant.value)
+			const code = variant.value === null ? (variant.valueState === "unresolved" ? "unresolved" : "implicit") : String(variant.value)
 			lines.push(`  ${code.padStart(8)}  ${variant.name}`)
 		}
 		lines.push("")
 	}
+
+	const unresolved = enums.flatMap((declaration) => declaration.variants).filter((variant) => variant.valueState === "unresolved").length
+	if (unresolved > 0) lines.push(`${unresolved} explicit discriminant(s) could not be resolved and were not checked.`, "")
 
 	for (const finding of findings) {
 		lines.push(`${finding.severity}: ${finding.file}:${finding.line}  [${finding.rule}]`)
@@ -60,7 +63,7 @@ export function toMarkdown(enums, findings) {
 		for (const variant of declaration.variants) {
 			rows.push({
 				value: variant.value,
-				code: variant.value === null ? "_implicit_" : String(variant.value),
+				code: variant.value === null ? (variant.valueState === "unresolved" ? "_unresolved_" : "_implicit_") : String(variant.value),
 				enumName: declaration.name,
 				variant: variant.name,
 				source: `${declaration.file}:${variant.line}`,
@@ -79,11 +82,13 @@ export function toMarkdown(enums, findings) {
 	}
 
 	lines.push("")
+	const unresolved = enums.flatMap((declaration) => declaration.variants).filter((variant) => variant.valueState === "unresolved").length
+	if (unresolved > 0) lines.push(`${unresolved} explicit discriminant(s) could not be resolved and were not checked.`, "")
 	lines.push("## Findings")
 	lines.push("")
 
 	if (findings.length === 0) {
-		lines.push("No issues found.")
+		lines.push(unresolved > 0 ? "No issues found in resolved codes." : "No issues found.")
 	} else {
 		lines.push("| Severity | Rule | Location | Detail |")
 		lines.push("| --- | --- | --- | --- |")
