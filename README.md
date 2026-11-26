@@ -88,14 +88,15 @@ console.log(toMarkdown(enums, findings))
 ## What the parser understands
 
 The parser is lexical, not a full Rust front end, so that it can run anywhere.
-It recognises `#[contracterror]` enums with explicit decimal or hexadecimal
+It recognises `#[contracterror]` and path-qualified attributes such as
+`#[soroban_sdk::contracterror]` (including whitespace inside the brackets),
+on enums with explicit decimal or hexadecimal
 discriminants, implicit discriminants, per-variant attributes such as `#[cfg]`,
 and trailing commas. It correctly ignores anything inside comments, string
 literals, raw strings and character literals.
 
-Two known gaps are tracked as issues rather than hidden: fully qualified
-`#[soroban_sdk::contracterror]` attributes are skipped, and discriminants given
-as a named constant are read as implicit. Both are open for contribution.
+One known gap is tracked as an issue rather than hidden: discriminants given
+as a named constant are not currently analyzed.
 
 ## Repository layout
 

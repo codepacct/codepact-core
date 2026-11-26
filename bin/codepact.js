@@ -114,7 +114,6 @@ function main() {
 	for (const path of options.paths) {
 		for (const file of collectRustFiles(path)) {
 			const source = readFileSync(file, "utf8")
-			if (!source.includes("#[contracterror]")) continue
 			enums.push(...parseContractErrors(source, relative(process.cwd(), file) || file))
 		}
 	}

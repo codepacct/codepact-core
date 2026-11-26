@@ -112,3 +112,32 @@ test("a trailing comma does not produce an empty variant", () => {
 	assert.equal(withTrailingComma[0].variants.length, 1)
 	assert.equal(withoutTrailingComma[0].variants.length, 1)
 })
+
+test("recognizes path-qualified and whitespace-padded contracterror attributes", () => {
+	const source = [
+		"#[soroban_sdk::contracterror]", "pub enum First { A = 1 }",
+		"#[ contracterror ]", "pub enum Second { B = 2 }",
+		"#[ ::foo :: bar :: contracterror ]", "pub enum Third { C = 3 }",
+		"#[r#type::模块::contracterror]", "pub enum Fourth { D = 4 }",
+	].join("\n")
+	assert.deepEqual(parseContractErrors(source).map(({ name, line }) => [name, line]), [
+		["First", 1], ["Second", 3], ["Third", 5], ["Fourth", 7],
+	])
+})
+
+test("does not confuse similar attributes or quoted qualified attributes", () => {
+	const source = [
+		'const DOC: &str = "#[soroban_sdk::contracterror] pub enum Fake { A = 1 }";',
+		"// #[other::contracterror]", "#[not_contracterror]", "enum NotAnError { A = 1 }",
+		"#[contracterror_extra]", "enum AlsoNotAnError { B = 2 }",
+	].join("\n")
+	assert.deepEqual(parseContractErrors(source), [])
+})
+
+test("bounds a missing enum by the next qualified attribute", () => {
+	const source = [
+		"#[contracterror]", "struct NotAnEnum;",
+		"#[soroban_sdk::contracterror]", "enum Real { A = 1 }",
+	].join("\n")
+	assert.deepEqual(parseContractErrors(source).map(({ name, line }) => [name, line]), [["Real", 3]])
+})
