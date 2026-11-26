@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
-import { readFileSync, writeFileSync, readdirSync, statSync } from "node:fs"
-import { join, relative } from "node:path"
+import { readFileSync, writeFileSync, readdirSync, statSync, realpathSync } from "node:fs"
+import { join, relative, resolve, dirname, basename } from "node:path"
 
 import { parseContractErrors } from "../src/parse.js"
 import { analyze, summarize } from "../src/analyze.js"
 import { toText, toMarkdown } from "../src/report.js"
+import { createBaseline, compareBaseline } from "../src/baseline.js"
 
 const SKIPPED_DIRECTORIES = new Set([".git", "node_modules", "target", "dist", "build"])
 
@@ -21,6 +22,8 @@ Options:
   --out <file>       Write the report to a file instead of stdout.
   --config <file>    JSON config with "ranges" and/or "ignore" keys.
   --strict           Treat warnings as failures.
+  --write-baseline <file>  Record current findings as accepted.
+  --baseline <file>  Report and fail only on findings not in the baseline.
   -h, --help         Show this message.
 
 Exit codes:
@@ -37,6 +40,8 @@ function parseArguments(argv) {
 		out: null,
 		config: null,
 		strict: false,
+		baseline: null,
+		writeBaseline: null,
 		help: false,
 	}
 
@@ -56,6 +61,14 @@ function parseArguments(argv) {
 			case "--strict":
 				options.strict = true
 				break
+			case "--baseline":
+				options.baseline = argv[++i]
+				if (!options.baseline || options.baseline.startsWith("-")) throw new Error("--baseline requires a file path")
+				break
+			case "--write-baseline":
+				options.writeBaseline = argv[++i]
+				if (!options.writeBaseline || options.writeBaseline.startsWith("-")) throw new Error("--write-baseline requires a file path")
+				break
 			case "--out":
 				options.out = argv[++i]
 				if (!options.out) throw new Error("--out requires a file path")
@@ -70,6 +83,21 @@ function parseArguments(argv) {
 		}
 	}
 
+	if (options.baseline && options.writeBaseline) throw new Error("--baseline and --write-baseline cannot be combined")
+	if (options.out && (options.writeBaseline || options.baseline)) {
+		const baselineFile = options.writeBaseline || options.baseline
+		let same = resolve(options.out) === resolve(baselineFile)
+		try {
+			const canonical = (path) => join(realpathSync(dirname(resolve(path))), basename(path))
+			same ||= canonical(options.out) === canonical(baselineFile)
+			const a = statSync(options.out)
+			const b = statSync(baselineFile)
+			same ||= a.dev === b.dev && a.ino === b.ino
+		} catch (error) {
+			if (error.code !== "ENOENT") throw error
+		}
+		if (same) throw new Error("--out and the baseline must use different files")
+	}
 	if (options.json && options.markdown) {
 		throw new Error("--json and --markdown cannot be combined")
 	}
@@ -119,19 +147,36 @@ function main() {
 		}
 	}
 
-	const findings = analyze(enums, config)
+	let findings = analyze(enums, config)
+	let baselineStatus = null
+	if (options.writeBaseline) {
+		const baseline = createBaseline(findings)
+		writeFileSync(options.writeBaseline, JSON.stringify(baseline, null, 2) + "\n", { flag: "wx" })
+		baselineStatus = { written: baseline.findings.length, accepted: 0, stale: [] }
+	} else if (options.baseline) {
+		const result = compareBaseline(findings, JSON.parse(readFileSync(options.baseline, "utf8")))
+		findings = result.findings
+		baselineStatus = { accepted: result.accepted, stale: result.stale }
+	}
 
 	let output
-	if (options.json) output = JSON.stringify({ enums, findings }, null, 2)
-	else if (options.markdown) output = toMarkdown(enums, findings)
-	else output = toText(enums, findings)
+	if (options.json) output = JSON.stringify({ enums, findings, ...(baselineStatus ? { baseline: baselineStatus } : {}) }, null, 2)
+	else {
+		output = options.markdown ? toMarkdown(enums, findings) : toText(enums, findings)
+		if (baselineStatus) {
+			const message = `Baseline: ${baselineStatus.accepted} accepted, ${baselineStatus.stale.length} stale` +
+				(baselineStatus.written === undefined ? "." : `; ${baselineStatus.written} recorded.`)
+			output += `\n\n${message}`
+			for (const identity of baselineStatus.stale) output += `\nStale: ${JSON.stringify(identity)}`
+		}
+	}
 
 	if (options.out) writeFileSync(options.out, `${output}\n`)
 	else process.stdout.write(`${output}\n`)
 
 	const counts = summarize(findings)
 	const failed = counts.errors > 0 || (options.strict && counts.warnings > 0)
-	return failed ? 1 : 0
+	return !options.writeBaseline && failed ? 1 : 0
 }
 
 try {

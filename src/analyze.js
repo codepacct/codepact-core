@@ -11,6 +11,7 @@
  * @property {"error"|"warning"} severity
  * @property {string} file
  * @property {number} line
+ * @property {string[]} identity Stable, line-independent finding identity.
  * @property {string} message
  */
 
@@ -61,6 +62,7 @@ export function analyze(enums, config = {}) {
 			if (variant.value === null) {
 				report({
 					rule: "implicit-discriminant",
+					identity: ["implicit-discriminant", declaration.file, declaration.name, variant.name],
 					severity: "warning",
 					file: declaration.file,
 					line: variant.line,
@@ -76,6 +78,7 @@ export function analyze(enums, config = {}) {
 			if (previous) {
 				report({
 					rule: "duplicate-discriminant",
+					identity: ["duplicate-discriminant", declaration.file, declaration.name, variant.name, previous.name, String(variant.value)],
 					severity: "error",
 					file: declaration.file,
 					line: variant.line,
@@ -116,6 +119,10 @@ export function analyze(enums, config = {}) {
 			if (shared.length > 0) {
 				report({
 					rule: "code-collision",
+					identity: ["code-collision", ...[a, b].map((span) => JSON.stringify([
+						span.declaration.file, span.declaration.name,
+						shared.map((value) => [String(value), span.declaration.variants.filter((v) => v.value === value).map((v) => v.name).sort()]),
+					])).sort()],
 					severity: "error",
 					file: b.declaration.file,
 					line: b.declaration.line,
@@ -130,6 +137,9 @@ export function analyze(enums, config = {}) {
 
 			report({
 				rule: "range-overlap",
+				identity: ["range-overlap", ...[a, b].map((span) => JSON.stringify([
+					span.declaration.file, span.declaration.name, span.min, span.max,
+				])).sort()],
 				severity: "warning",
 				file: b.declaration.file,
 				line: b.declaration.line,
@@ -152,6 +162,7 @@ export function analyze(enums, config = {}) {
 			if (variant.value >= low && variant.value <= high) continue
 			report({
 				rule: "range-violation",
+				identity: ["range-violation", span.declaration.file, span.declaration.name, variant.name, String(variant.value), String(low), String(high)],
 				severity: "error",
 				file: span.declaration.file,
 				line: variant.line,

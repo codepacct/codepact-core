@@ -130,3 +130,26 @@ request, including the maintainer's own.
 ## License
 
 MIT
+
+## Adopt an existing workspace with a baseline
+
+A baseline records findings you intentionally accept today so later runs can
+fail on new findings. Review the file before committing it; it is not a fix and
+must not be used to hide new problems. Use the same working directory, scan paths,
+and config in both commands so finding file paths remain stable:
+
+```bash
+node bin/codepact.js contracts/ --config codepact.config.json --write-baseline codepact.baseline.json
+node bin/codepact.js contracts/ --config codepact.config.json --baseline codepact.baseline.json --strict
+```
+
+Writing a new baseline exits 0 on success and refuses to overwrite an existing
+file. Baseline runs apply `ignore` configuration first, report stale entries,
+and fail on new errors (or new warnings with `--strict`). JSON output includes
+baseline acceptance and stale details; text and Markdown report them too.
+Finding identities exclude line numbers and messages but include affected files,
+enums, variants and, where relevant, codes and ranges. Changed identities are
+new findings; review and remove stale entries. Malformed or ambiguous duplicate
+identities cause an execution error rather than silently hiding findings.
+The baseline covers only what this lexical parser can recognize; it is not a
+security audit.
