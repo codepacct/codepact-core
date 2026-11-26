@@ -93,9 +93,11 @@ discriminants, implicit discriminants, per-variant attributes such as `#[cfg]`,
 and trailing commas. It correctly ignores anything inside comments, string
 literals, raw strings and character literals.
 
-Two known gaps are tracked as issues rather than hidden: fully qualified
-`#[soroban_sdk::contracterror]` attributes are skipped, and discriminants given
-as a named constant are read as implicit. Both are open for contribution.
+The parser resolves same-scope `const NAME: u32 = <literal>;` declarations and
+`+` or `-` expressions using those constants and numeric literals. Imported,
+ambiguous, or more complex expressions are shown as unresolved and excluded from
+collision and range checks, so a clean report does not prove those codes safe.
+Fully qualified `#[soroban_sdk::contracterror]` attributes are not yet recognized.
 
 ## Repository layout
 
