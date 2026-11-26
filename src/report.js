@@ -42,7 +42,37 @@ export function toText(enums, findings) {
 }
 
 /**
+ * Escape and normalize a value for safe inclusion inside a Markdown table cell.
+ *
+ * Line breaks (`\r\n`, `\r`, `\n`) are collapsed to single spaces and
+ * backslashes (`\`) and pipes (`|`) are backslash-escaped so unusual file
+ * paths or finding messages cannot break table rows or split columns.
+ *
+ * @param {string} value
+ */
+function escapeMarkdownCell(value) {
+	return String(value)
+		.replace(/\r\n|\r|\n/g, " ")
+		.replace(/\\/g, "\\\\")
+		.replace(/\|/g, "\\|")
+}
+
+/**
+ * Normalize a value rendered inside backticks within a Markdown table cell.
+ *
+ * @param {string} value
+ */
+function escapeMarkdownCodeCell(value) {
+	return String(value)
+		.replace(/\r\n|\r|\n/g, " ")
+		.replace(/\|/g, "\\|")
+}
+
+/**
  * Markdown suitable for committing as a generated error-code registry.
+ *
+ * Table cells collapse line breaks (`\r\n`, `\r`, `\n`) to single spaces and
+ * escape backslashes (`\`) and pipes (`|`) without modifying underlying data.
  *
  * @param {import("./parse.js").ErrorEnum[]} enums
  * @param {import("./analyze.js").Finding[]} findings
@@ -78,7 +108,9 @@ export function toMarkdown(enums, findings) {
 	})
 
 	for (const row of rows) {
-		lines.push(`| ${row.code} | \`${row.enumName}\` | \`${row.variant}\` | ${row.source} |`)
+		lines.push(
+			`| ${row.code} | \`${escapeMarkdownCodeCell(row.enumName)}\` | \`${escapeMarkdownCodeCell(row.variant)}\` | ${escapeMarkdownCell(row.source)} |`,
+		)
 	}
 
 	lines.push("")
@@ -94,7 +126,7 @@ export function toMarkdown(enums, findings) {
 		lines.push("| --- | --- | --- | --- |")
 		for (const finding of findings) {
 			lines.push(
-				`| ${finding.severity} | \`${finding.rule}\` | ${finding.file}:${finding.line} | ${finding.message} |`,
+				`| ${escapeMarkdownCell(finding.severity)} | \`${escapeMarkdownCodeCell(finding.rule)}\` | ${escapeMarkdownCell(`${finding.file}:${finding.line}`)} | ${escapeMarkdownCell(finding.message)} |`,
 			)
 		}
 	}
