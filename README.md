@@ -95,8 +95,10 @@ discriminants, implicit discriminants, per-variant attributes such as `#[cfg]`,
 and trailing commas. It correctly ignores anything inside comments, string
 literals, raw strings and character literals.
 
-One known gap is tracked as an issue rather than hidden: discriminants given
-as a named constant are not currently analyzed.
+The parser resolves same-scope `const NAME: u32 = <literal>;` declarations and
+`+` or `-` expressions using those constants and numeric literals. Imported,
+ambiguous, or more complex expressions are shown as unresolved and excluded from
+collision and range checks, so a clean report does not prove those codes safe.
 
 ## Repository layout
 

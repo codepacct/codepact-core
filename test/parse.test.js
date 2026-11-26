@@ -113,6 +113,24 @@ test("a trailing comma does not produce an empty variant", () => {
 	assert.equal(withoutTrailingComma[0].variants.length, 1)
 })
 
+test("resolves same-scope constants and simple arithmetic", () => {
+	const source = ["const BASE: u32 = 200;", "#[contracterror]", "enum E {", " A = BASE, B = BASE + 1, C = 0xff - 1, D,", "}"].join("\n")
+	assert.deepEqual(parseContractErrors(source)[0].variants.map(({name, value}) => [name, value]), [["A", 200], ["B", 201], ["C", 254], ["D", null]])
+})
+
+test("preserves unknown, complex, ambiguous and overflowing expressions as unresolved", () => {
+	const source = ["const DUP: u32 = 1;", "const DUP: u32 = 2;", "#[contracterror]", "enum E {", " A = UNKNOWN, B = 1 << 4, C = DUP, D = 0 - 1, E = 4294967295 + 1, F,", "}"].join("\n")
+	const variants = parseContractErrors(source)[0].variants
+	assert.deepEqual(variants.map((v) => [v.name, v.value, v.valueState]), [["A", null, "unresolved"], ["B", null, "unresolved"], ["C", null, "unresolved"], ["D", null, "unresolved"], ["E", null, "unresolved"], ["F", null, undefined]])
+})
+
+test("does not resolve constants from a different module scope or macro arguments", () => {
+	const source = ["macro_call!(const FAKE: u32 = 3;);", "mod other { const BASE: u32 = 100; }", "mod own { const BASE: u32 = 200;", "#[contracterror]", "enum E { A = BASE, B = FAKE }", "}"].join("\n")
+	const variants = parseContractErrors(source)[0].variants
+	assert.equal(variants[0].value, 200)
+	assert.equal(variants[1].valueState, "unresolved")
+})
+
 test("recognizes path-qualified and whitespace-padded contracterror attributes", () => {
 	const source = [
 		"#[soroban_sdk::contracterror]", "pub enum First { A = 1 }",
@@ -140,4 +158,10 @@ test("bounds a missing enum by the next qualified attribute", () => {
 		"#[soroban_sdk::contracterror]", "enum Real { A = 1 }",
 	].join("\n")
 	assert.deepEqual(parseContractErrors(source).map(({ name, line }) => [name, line]), [["Real", 3]])
+})
+
+
+test("resolves constants in a qualified contracterror enum", () => {
+	const source = "const BASE: u32 = 200;\n#[soroban_sdk::contracterror]\nenum E { A = BASE, B = BASE + 1 }"
+	assert.deepEqual(parseContractErrors(source)[0].variants.map((v) => v.value), [200, 201])
 })

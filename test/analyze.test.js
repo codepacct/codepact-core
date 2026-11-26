@@ -134,3 +134,35 @@ test("end to end: parse then analyze a colliding pair of contracts", () => {
 
 	assert.equal(summarize(findings).errors, 1)
 })
+
+test("resolved constants participate in collisions while unresolved expressions are not implicit", () => {
+	const source = ["const BASE: u32 = 200;", "#[contracterror]", "enum E { A = BASE, B = 200, C = unknown(), D }"].join("\n")
+	const findings = analyze(parseContractErrors(source))
+	assert.deepEqual(findings.map((finding) => finding.rule), ["duplicate-discriminant", "implicit-discriminant"])
+	assert.match(findings[1].message, /E::D/)
+})
+
+test("reports unresolved expressions transparently in text and markdown", async () => {
+	const { toText, toMarkdown } = await import("../src/report.js")
+	const enums = parseContractErrors("#[contracterror]\nenum E { A = external::CODE }")
+	const findings = analyze(enums)
+	assert.deepEqual(findings, [])
+	assert.match(toText(enums, findings), /unresolved/)
+	assert.match(toText(enums, findings), /could not be resolved and were not checked/)
+	assert.match(toMarkdown(enums, findings), /_unresolved_/)
+	assert.match(toMarkdown(enums, findings), /No issues found in resolved codes/)
+})
+
+test("CLI finds collisions involving constants", async () => {
+	const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs")
+	const { tmpdir } = await import("node:os")
+	const { join } = await import("node:path")
+	const { spawnSync } = await import("node:child_process")
+	const dir = mkdtempSync(join(tmpdir(), "codepact-const-"))
+	try {
+		writeFileSync(join(dir, "errors.rs"), "const BASE: u32 = 200;\n#[contracterror]\nenum A { X = BASE + 1 }\n#[contracterror]\nenum B { Y = 201 }")
+		const result = spawnSync(process.execPath, [new URL("../bin/codepact.js", import.meta.url).pathname, "--json", dir], { encoding: "utf8" })
+		assert.equal(result.status, 1, result.stderr)
+		assert.ok(JSON.parse(result.stdout).findings.some((finding) => finding.rule === "code-collision"))
+	} finally { rmSync(dir, { recursive: true, force: true }) }
+})
