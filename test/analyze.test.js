@@ -1,5 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
+import { fileURLToPath } from "node:url"
 
 import { analyze, summarize } from "../src/analyze.js"
 import { parseContractErrors } from "../src/parse.js"
@@ -161,7 +162,7 @@ test("CLI finds collisions involving constants", async () => {
 	const dir = mkdtempSync(join(tmpdir(), "codepact-const-"))
 	try {
 		writeFileSync(join(dir, "errors.rs"), "const BASE: u32 = 200;\n#[contracterror]\nenum A { X = BASE + 1 }\n#[contracterror]\nenum B { Y = 201 }")
-		const result = spawnSync(process.execPath, [new URL("../bin/codepact.js", import.meta.url).pathname, "--json", dir], { encoding: "utf8" })
+		const result = spawnSync(process.execPath, [fileURLToPath(new URL("../bin/codepact.js", import.meta.url)), "--json", dir], { encoding: "utf8" })
 		assert.equal(result.status, 1, result.stderr)
 		assert.ok(JSON.parse(result.stdout).findings.some((finding) => finding.rule === "code-collision"))
 	} finally { rmSync(dir, { recursive: true, force: true }) }

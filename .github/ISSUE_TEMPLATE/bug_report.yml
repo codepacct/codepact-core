@@ -1,0 +1,54 @@
+name: Bug report
+description: Something in Codepact does not behave as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please include the smallest source snippet that
+        reproduces the behaviour. Do not include secrets or private contract code.
+  - type: input
+    id: version
+    attributes:
+      label: Codepact version
+      description: Output of `node bin/codepact.js --version`
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command and configuration
+      description: The exact command, plus `codepact.config.json` if you used one
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Smallest Rust snippet
+      render: rust
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected output
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual output
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other
+    validations:
+      required: true
