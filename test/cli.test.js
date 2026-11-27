@@ -7,8 +7,19 @@ import { spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 
 const cli = fileURLToPath(new URL("../bin/codepact.js", import.meta.url))
+const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version
 const cleanExample = fileURLToPath(new URL("../examples/clean", import.meta.url))
 const brokenExample = fileURLToPath(new URL("../examples/broken", import.meta.url))
+
+function trySymlink(target, path, type) {
+	try {
+		symlinkSync(target, path, type)
+		return true
+	} catch (error) {
+		if (error.code === "EPERM" || error.code === "EACCES") return false
+		throw error
+	}
+}
 
 test("CLI reports --help with usage and exit code 0", () => {
 	for (const flag of ["--help", "-h"]) {
@@ -145,18 +156,43 @@ test("CLI deduplicates repeated, overlapping, and symlinked scan paths", () => {
 			["#[contracterror]", "pub enum TokenError { NotInit = 100 }"].join("\n"),
 		)
 		const symlinkFile = join(dir, "token_link.rs")
-		symlinkSync(tokenFile, symlinkFile)
+		const linked = trySymlink(tokenFile, symlinkFile)
+		const paths = [contracts, tokenFile, join(contracts, "..", "contracts", "token.rs")]
+		if (linked) paths.push(symlinkFile)
 
-		const result = spawnSync(
-			process.execPath,
-			[cli, "--json", contracts, tokenFile, join(contracts, "..", "contracts", "token.rs"), symlinkFile],
-			{ cwd: dir, encoding: "utf8" },
-		)
+		const result = spawnSync(process.execPath, [cli, "--json", ...paths], {
+			cwd: dir,
+			encoding: "utf8",
+		})
 		assert.equal(result.status, 0, result.stderr)
 		const report = JSON.parse(result.stdout)
 		assert.equal(report.enums.length, 1)
-		assert.equal(report.enums[0].file, "contracts/token.rs")
+		assert.equal(report.enums[0].file.replaceAll("\\", "/"), "contracts/token.rs")
 		assert.deepEqual(report.findings, [])
+	} finally {
+		rmSync(dir, { recursive: true, force: true })
+	}
+})
+
+test("CLI prints its version for both aliases", () => {
+	for (const flag of ["--version", "-v"]) {
+		const result = spawnSync(process.execPath, [cli, flag], { encoding: "utf8" })
+		assert.equal(result.status, 0, result.stderr)
+		assert.equal(result.stdout, `${version}\n`)
+		assert.equal(result.stderr, "")
+	}
+})
+
+test("CLI rejects a malformed config with the file name", () => {
+	const dir = mkdtempSync(join(tmpdir(), "codepact-config-"))
+	try {
+		const config = join(dir, "codepact.config.json")
+		writeFileSync(config, JSON.stringify({ ranges: { TokenError: [200, 100] } }))
+		const result = spawnSync(process.execPath, [cli, "--config", config, dir], { encoding: "utf8" })
+		assert.equal(result.status, 2)
+		assert.match(result.stderr, /Invalid config/)
+		assert.match(result.stderr, /codepact\.config\.json/)
+		assert.match(result.stderr, /inverted/)
 	} finally {
 		rmSync(dir, { recursive: true, force: true })
 	}

@@ -7,8 +7,10 @@ import { parseContractErrors } from "../src/parse.js"
 import { analyze, summarize } from "../src/analyze.js"
 import { toText, toMarkdown } from "../src/report.js"
 import { createBaseline, compareBaseline } from "../src/baseline.js"
+import { loadConfig } from "../src/config.js"
 
 const SKIPPED_DIRECTORIES = new Set([".git", "node_modules", "target", "dist", "build"])
+const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version
 
 const USAGE = `codepact [options] [paths...]
 
@@ -24,6 +26,7 @@ Options:
   --strict           Treat warnings as failures.
   --write-baseline <file>  Record current findings as accepted.
   --baseline <file>  Report and fail only on findings not in the baseline.
+  -v, --version      Print the Codepact version and exit.
   -h, --help         Show this message.
 
 Exit codes:
@@ -42,6 +45,7 @@ function parseArguments(argv) {
 		strict: false,
 		baseline: null,
 		writeBaseline: null,
+		version: false,
 		help: false,
 	}
 
@@ -51,6 +55,10 @@ function parseArguments(argv) {
 			case "-h":
 			case "--help":
 				options.help = true
+				break
+			case "-v":
+			case "--version":
+				options.version = true
 				break
 			case "--json":
 				options.json = true
@@ -136,7 +144,12 @@ function main() {
 		return 0
 	}
 
-	const config = options.config ? JSON.parse(readFileSync(options.config, "utf8")) : {}
+	if (options.version) {
+		process.stdout.write(`${VERSION}\n`)
+		return 0
+	}
+
+	const config = options.config ? loadConfig(options.config) : {}
 
 	// Deduplicate by resolved real path (following symlinks) so overlapping or
 	// repeated scan targets never double-count enums or collide with themselves,
