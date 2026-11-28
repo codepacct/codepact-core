@@ -1,7 +1,7 @@
 import test from "node:test"
 import assert from "node:assert/strict"
 
-import { toMarkdown } from "../src/report.js"
+import { toMarkdown, toGithubAnnotations } from "../src/report.js"
 
 function countUnescapedPipes(line) {
 	let count = 0
@@ -75,5 +75,60 @@ test("toMarkdown escapes pipes, backslashes, and line breaks in registry and fin
 	assert.equal(
 		findingRow,
 		"| error | `code-collision` | contracts\\\\dir\\|v1 err\\\\:2 | Line 1 Line 2 \\| C:\\\\path\\\\ |",
+	)
+})
+
+test("toGithubAnnotations formats error and warning findings as exact workflow commands", () => {
+	const findings = [
+		{
+			rule: "duplicate-discriminant",
+			severity: "error",
+			file: "contracts/router/src/error.rs",
+			line: 17,
+			message: "RouterError::IdenticalAddresses reuses code 300, already assigned to RouterError::Paused on line 12.",
+		},
+		{
+			rule: "implicit-discriminant",
+			severity: "warning",
+			file: "contracts/factory/src/error.rs",
+			line: 19,
+			message: "FactoryError::Unknown has no explicit discriminant.",
+		},
+	]
+
+	assert.equal(
+		toGithubAnnotations(findings),
+		[
+			"::error file=contracts/router/src/error.rs,line=17::RouterError::IdenticalAddresses reuses code 300, already assigned to RouterError::Paused on line 12.",
+			"::warning file=contracts/factory/src/error.rs,line=19::FactoryError::Unknown has no explicit discriminant.",
+		].join("\n"),
+	)
+	assert.equal(toGithubAnnotations([]), "")
+})
+
+test("toGithubAnnotations escapes percent signs, line breaks, colons, and commas", () => {
+	const findings = [
+		{
+			rule: "code-collision",
+			severity: "error",
+			file: "contracts/a,b:100%\r\nerr.rs",
+			line: 7,
+			message: "First line 100%\nSecond line %0A\r\nThird line",
+		},
+		{
+			rule: "implicit-discriminant",
+			severity: "warning",
+			file: "",
+			line: null,
+			message: "Line A\rLine B",
+		},
+	]
+
+	assert.equal(
+		toGithubAnnotations(findings),
+		[
+			"::error file=contracts/a%2Cb%3A100%25%0D%0Aerr.rs,line=7::First line 100%25%0ASecond line %250A%0D%0AThird line",
+			"::warning::Line A%0DLine B",
+		].join("\n"),
 	)
 })

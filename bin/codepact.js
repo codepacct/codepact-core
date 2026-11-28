@@ -5,11 +5,12 @@ import { join, relative, resolve, dirname, basename } from "node:path"
 
 import { parseContractErrors } from "../src/parse.js"
 import { analyze, summarize } from "../src/analyze.js"
-import { toText, toMarkdown } from "../src/report.js"
+import { toText, toMarkdown, toGithubAnnotations } from "../src/report.js"
 import { createBaseline, compareBaseline } from "../src/baseline.js"
 import { loadConfig } from "../src/config.js"
 
 const SKIPPED_DIRECTORIES = new Set([".git", "node_modules", "target", "dist", "build"])
+const VALID_FORMATS = new Set(["text", "json", "markdown", "github"])
 const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version
 
 const USAGE = `codepact [options] [paths...]
@@ -21,6 +22,7 @@ cross-contract code collisions and overlapping code ranges.
 Options:
   --json             Emit machine readable JSON instead of text.
   --markdown         Emit a Markdown registry table instead of text.
+  --format <name>    Output format: text, json, markdown, or github.
   --out <file>       Write the report to a file instead of stdout.
   --config <file>    JSON config with "ranges" and/or "ignore" keys.
   --strict           Treat warnings as failures.
@@ -35,11 +37,19 @@ Exit codes:
   2  the tool could not run (bad arguments, unreadable file)
 `
 
+function validateFormat(value) {
+	if (!VALID_FORMATS.has(value)) {
+		throw new Error(`Unknown format: ${value} (expected text, json, markdown, or github)`)
+	}
+	return value
+}
+
 function parseArguments(argv) {
 	const options = {
 		paths: [],
 		json: false,
 		markdown: false,
+		format: null,
 		out: null,
 		config: null,
 		strict: false,
@@ -66,6 +76,12 @@ function parseArguments(argv) {
 			case "--markdown":
 				options.markdown = true
 				break
+			case "--format": {
+				const value = argv[++i]
+				if (!value || value.startsWith("-")) throw new Error("--format requires a format name")
+				options.format = validateFormat(value)
+				break
+			}
 			case "--strict":
 				options.strict = true
 				break
@@ -86,6 +102,12 @@ function parseArguments(argv) {
 				if (!options.config) throw new Error("--config requires a file path")
 				break
 			default:
+				if (argument.startsWith("--format=")) {
+					const value = argument.slice("--format=".length)
+					if (!value) throw new Error("--format requires a format name")
+					options.format = validateFormat(value)
+					break
+				}
 				if (argument.startsWith("-")) throw new Error(`Unknown option: ${argument}`)
 				options.paths.push(argument)
 		}
@@ -108,6 +130,9 @@ function parseArguments(argv) {
 	}
 	if (options.json && options.markdown) {
 		throw new Error("--json and --markdown cannot be combined")
+	}
+	if (options.format && (options.json || options.markdown)) {
+		throw new Error("--format cannot be combined with --json or --markdown")
 	}
 	if (options.paths.length === 0) options.paths.push(".")
 
@@ -178,10 +203,13 @@ function main() {
 		baselineStatus = { accepted: result.accepted, stale: result.stale }
 	}
 
+	const format = options.format ?? (options.json ? "json" : options.markdown ? "markdown" : null)
+	const emitGithub = format === "github" || (format === null && process.env.GITHUB_ACTIONS === "true")
+
 	let output
-	if (options.json) output = JSON.stringify({ enums, findings, ...(baselineStatus ? { baseline: baselineStatus } : {}) }, null, 2)
+	if (format === "json") output = JSON.stringify({ enums, findings, ...(baselineStatus ? { baseline: baselineStatus } : {}) }, null, 2)
 	else {
-		output = options.markdown ? toMarkdown(enums, findings) : toText(enums, findings)
+		output = format === "markdown" ? toMarkdown(enums, findings) : toText(enums, findings)
 		if (baselineStatus) {
 			const message = `Baseline: ${baselineStatus.accepted} accepted, ${baselineStatus.stale.length} stale` +
 				(baselineStatus.written === undefined ? "." : `; ${baselineStatus.written} recorded.`)
@@ -190,8 +218,14 @@ function main() {
 		}
 	}
 
-	if (options.out) writeFileSync(options.out, `${output}\n`)
-	else process.stdout.write(`${output}\n`)
+	const annotations = emitGithub && findings.length > 0 ? toGithubAnnotations(findings) : ""
+	if (options.out) {
+		writeFileSync(options.out, `${output}\n`)
+		if (annotations) process.stdout.write(`${annotations}\n`)
+	} else {
+		const rendered = annotations ? `${output}\n\n${annotations}` : output
+		process.stdout.write(`${rendered}\n`)
+	}
 
 	const counts = summarize(findings)
 	const failed = counts.errors > 0 || (options.strict && counts.warnings > 0)
