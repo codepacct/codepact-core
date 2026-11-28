@@ -133,3 +133,54 @@ export function toMarkdown(enums, findings) {
 
 	return lines.join("\n")
 }
+
+/**
+ * Escape workflow command message data per GitHub Actions rules.
+ *
+ * `%` must be escaped before `\r` and `\n` so escaped sequences are not
+ * double-escaped.
+ *
+ * @param {string} value
+ */
+function escapeCommandData(value) {
+	return String(value)
+		.replace(/%/g, "%25")
+		.replace(/\r/g, "%0D")
+		.replace(/\n/g, "%0A")
+}
+
+/**
+ * Escape workflow command property values (`file`, `line`) per GitHub Actions rules.
+ *
+ * @param {string | number} value
+ */
+function escapeCommandProperty(value) {
+	return escapeCommandData(value)
+		.replace(/:/g, "%3A")
+		.replace(/,/g, "%2C")
+}
+
+/**
+ * GitHub Actions workflow commands (`::error` / `::warning`) so findings
+ * render inline on pull request diffs.
+ *
+ * @param {import("./analyze.js").Finding[]} findings
+ */
+export function toGithubAnnotations(findings) {
+	if (findings.length === 0) return ""
+
+	return findings
+		.map((finding) => {
+			const command = finding.severity === "error" ? "error" : "warning"
+			const properties = []
+			if (finding.file !== undefined && finding.file !== null && finding.file !== "") {
+				properties.push(`file=${escapeCommandProperty(finding.file)}`)
+			}
+			if (finding.line !== undefined && finding.line !== null) {
+				properties.push(`line=${escapeCommandProperty(finding.line)}`)
+			}
+			const metadata = properties.length > 0 ? ` ${properties.join(",")}` : ""
+			return `::${command}${metadata}::${escapeCommandData(finding.message ?? "")}`
+		})
+		.join("\n")
+}

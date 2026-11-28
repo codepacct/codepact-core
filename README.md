@@ -64,12 +64,19 @@ node bin/codepact.js contracts/ --config codepact.config.json
 # Generate a committed registry of every error code
 node bin/codepact.js contracts/ --markdown --out docs/ERROR_CODES.md
 
+# Emit GitHub Actions annotations alongside the text report
+node bin/codepact.js contracts/ --format=github
+
 # Fail on warnings too
 node bin/codepact.js contracts/ --strict
 
 # Print the version
 node bin/codepact.js --version
 ```
+
+In GitHub Actions (`GITHUB_ACTIONS=true`), Codepact automatically emits
+`::error` and `::warning` workflow commands alongside the text report unless
+`--json`, `--markdown`, or another `--format` is specified.
 
 Exit codes: `0` clean, `1` findings failed the run, `2` the tool could not run.
 
@@ -131,7 +138,7 @@ src/comments.js   offset-preserving blanking of comments and literals
 src/parse.js      #[contracterror] enum parser
 src/analyze.js    rules and findings
 src/baseline.js   reviewed baseline creation and comparison
-src/report.js     text and Markdown reporters
+src/report.js     text, Markdown, and GitHub Actions reporters
 test/             node:test suites, no install required
 examples/         a clean workspace and a deliberately broken one
 docs/             rules, configuration and architecture notes
